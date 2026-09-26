@@ -24,6 +24,7 @@ export class ApiService {
 
   // auth
   login(email: string, password: string) { return this.post<AuthResponse>('/auth/login', { email, password }); }
+  demoAccounts() { return this.get<{ role: Role; name: string }[]>('/auth/demo'); }
   demoLogin(role: Role) { return this.post<AuthResponse>('/auth/demo', { role }); }
   me() { return this.get<User>('/auth/me'); }
 

@@ -59,6 +59,11 @@ export class Shell implements OnInit {
   protected color = computed(() => avatarColor(this.auth.user()?.id ?? 0));
 
   async ngOnInit() {
+    // The saved user can be out of date (e.g. a name changed in the database), so refresh it.
+    try {
+      this.auth.updateUser(await this.api.me());
+    } catch { /* an expired token is handled by the interceptor */ }
+
     if (this.auth.user()?.role === 'MANAGER') {
       try {
         this.ui.waitingCount.set((await this.api.approvals()).length);

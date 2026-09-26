@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService, errorMessage } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
@@ -43,9 +43,9 @@ const ART: Record<number, string> = { 9: 'a', 10: 'a', 16: 'b', 17: 'b', 18: 'b'
 
           <div class="divider">or try a sample account</div>
           <div class="demo">
-            <button type="button" (click)="demo('EMPLOYEE')" [disabled]="busy()"><b>Employee</b><span>Ananya Iyer</span></button>
-            <button type="button" (click)="demo('MANAGER')" [disabled]="busy()"><b>Manager</b><span>Rahul Verma</span></button>
-            <button type="button" (click)="demo('HR')" [disabled]="busy()"><b>HR</b><span>Kavita Sen</span></button>
+            <button type="button" (click)="demo('EMPLOYEE')" [disabled]="busy()"><b>Employee</b><span>{{ demoNames().EMPLOYEE }}</span></button>
+            <button type="button" (click)="demo('MANAGER')" [disabled]="busy()"><b>Manager</b><span>{{ demoNames().MANAGER }}</span></button>
+            <button type="button" (click)="demo('HR')" [disabled]="busy()"><b>HR</b><span>{{ demoNames().HR }}</span></button>
           </div>
           @if (slow()) {
             <p class="note calm small">Waking up the server. On the free plan this can take up to a minute the first time.</p>
@@ -55,7 +55,7 @@ const ART: Record<number, string> = { 9: 'a', 10: 'a', 16: 'b', 17: 'b', 18: 'b'
     </div>
   `,
 })
-export class LoginPage {
+export class LoginPage implements OnInit {
   private api = inject(ApiService);
   private auth = inject(AuthService);
   private router = inject(Router);
@@ -67,6 +67,15 @@ export class LoginPage {
   protected error = signal('');
   protected busy = signal<string | null>(null);
   protected slow = signal(false);
+  // Shown under each sample button. Replaced with the real names from the database once they load.
+  protected demoNames = signal<Record<Role, string>>({ EMPLOYEE: 'Sample employee', MANAGER: 'Sample manager', HR: 'Sample HR' });
+
+  async ngOnInit() {
+    try {
+      const accounts = await this.api.demoAccounts();
+      this.demoNames.update(names => ({ ...names, ...Object.fromEntries(accounts.map(a => [a.role, a.name])) }));
+    } catch { /* keep the placeholder labels */ }
+  }
 
   protected val = (e: Event) => (e.target as HTMLInputElement).value;
 

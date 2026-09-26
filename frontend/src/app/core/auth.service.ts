@@ -18,6 +18,12 @@ export class AuthService {
     write(USER_KEY, res.user);
   }
 
+  /** Replaces the saved user with fresh details from the server, e.g. after a name change. */
+  updateUser(user: User) {
+    this.user.set(user);
+    write(USER_KEY, user);
+  }
+
   signOut() {
     this.token.set(null);
     this.user.set(null);
