@@ -1,0 +1,6 @@
+# Tests run against an in-memory H2 database in PostgreSQL mode, using the same Flyway migrations.
+spring:
+  datasource:
+    url: jdbc:h2:mem:leavewise;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
