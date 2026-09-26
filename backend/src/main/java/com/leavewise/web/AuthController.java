@@ -1,6 +1,7 @@
 package com.leavewise.web;
 
 import com.leavewise.config.AppProperties;
+import com.leavewise.domain.Role;
 import com.leavewise.domain.User;
 import com.leavewise.repo.UserRepository;
 import com.leavewise.service.CurrentUser;
@@ -13,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -46,6 +49,18 @@ public class AuthController {
                 .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "That email and password don't match."));
         return new AuthResponse(tokens.issue(user), UserDto.from(user));
+    }
+
+    /** Who the one-click sample buttons sign in as, so the sign-in page can show their names. */
+    @GetMapping("/auth/demo")
+    public List<DemoAccount> demoAccounts() {
+        if (!props.demoLogin()) {
+            return List.of();
+        }
+        return Arrays.stream(Role.values())
+                .flatMap(role -> users.findFirstByRoleOrderByIdAsc(role).stream())
+                .map(u -> new DemoAccount(u.getRole(), u.getName()))
+                .toList();
     }
 
     /** One-click sign-in as a sample user, so reviewers can try each role. Off when DEMO_LOGIN=false. */

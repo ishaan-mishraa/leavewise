@@ -26,4 +26,7 @@ public final class AuthDtos {
 
     public record AuthResponse(String token, UserDto user) {
     }
+
+    public record DemoAccount(Role role, String name) {
+    }
 }

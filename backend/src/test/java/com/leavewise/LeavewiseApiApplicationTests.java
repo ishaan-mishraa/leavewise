@@ -63,6 +63,14 @@ class LeavewiseApiApplicationTests {
     }
 
     @Test
+    void sampleAccountsAreListedWithoutSigningIn() {
+        Res res = call(HttpMethod.GET, "/api/auth/demo", null, null);
+        assertThat(res.status()).isEqualTo(200);
+        assertThat(res.body().size()).isEqualTo(3);
+        assertThat(res.body().toString()).contains("EMPLOYEE", "MANAGER", "HR");
+    }
+
+    @Test
     void wrongPasswordIsRejected() {
         Res res = call(HttpMethod.POST, "/api/auth/login", null,
                 "{\"email\":\"ananya.iyer@leavewise.dev\",\"password\":\"nope\"}");
