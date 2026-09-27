@@ -1,92 +1,103 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ApiService, errorMessage } from '../core/api.service';
-import { avatarColor, days, fd, firstName, initials, names, range, statusLabel, typeColor } from '../core/format';
+import { firstName, names, num, range, statusLabel } from '../core/format';
 import { Approval, Leave } from '../core/models';
 import { UiService } from '../core/ui.service';
 
 @Component({
   selector: 'app-approvals',
   template: `
-    <div class="page-h">
+    <div class="page-head">
       <div>
-        <h1>Approvals</h1>
-        @if (!loading()) {
-          <p class="muted">
-            @if (items().length) { {{ items().length }} {{ items().length === 1 ? 'request is' : 'requests are' }} waiting for you. }
-            @else { You are all caught up. }
-          </p>
-        }
+        <h1>Leave Approvals</h1>
+        <p>Requests from your team waiting for a decision</p>
       </div>
     </div>
 
     @if (loading()) {
-      <p class="loading">Loading requests…</p>
+      <p class="loading">Loading…</p>
     } @else if (error()) {
-      <p class="err loading">{{ error() }}</p>
+      <div class="alert error">{{ error() }}</div>
     } @else {
-      <div class="stack">
-        @for (a of items(); track a.leave.id) {
-          <article class="card req">
-            <div class="req-top">
-              <div class="person">
-                <span class="av" [style.--c]="avatarColor(a.leave.userId)">{{ initials(a.leave.userName) }}</span>
-                <div>
-                  <div style="font-weight:600">{{ a.leave.userName }}</div>
-                  <div class="muted small"><span class="dot" [style.--c]="typeColor(a.leave.typeCode)"></span>{{ a.leave.typeName }} · {{ days(a.leave.days) }}</div>
-                </div>
-              </div>
-              <div style="font-weight:500">{{ range(a.leave.from, a.leave.to) }}</div>
-            </div>
-            <div class="req-meta">
-              <span>“{{ a.leave.reason }}”</span>
-              <span class="muted">{{ days(a.leftAfter) }} left after this</span>
-            </div>
-            @if (a.clash?.people?.length) {
-              <div class="note" [class.calm]="!a.clash!.overLimit">
-                {{ names(a.clash!.people) }} {{ a.clash!.people.length === 1 ? 'is' : 'are' }} also off on {{ fd(a.clash!.date) }}:
-                {{ a.clash!.total }} of {{ a.clash!.teamSize }} people@if (a.clash!.overLimit) {, above the {{ a.clash!.limitPct }}% limit}.
-              </div>
-            } @else {
-              <div class="note calm">Nobody else is off on these dates.</div>
-            }
-
-            @if (declining() === a.leave.id) {
-              <div class="field">
-                <label [for]="'why-' + a.leave.id">Why are you declining?</label>
-                <textarea [id]="'why-' + a.leave.id" rows="2" maxlength="250" [placeholder]="firstName(a.leave.userName) + ' will see this'"
-                          [value]="comment()" (input)="comment.set(val($event))"></textarea>
-                @if (formError()) { <p class="err">{{ formError() }}</p> }
-              </div>
-              <div class="actions">
-                <button class="btn danger" type="button" [disabled]="busy()" (click)="decline(a)">Decline request</button>
-                <button class="btn plain" type="button" (click)="declining.set(null)">Back</button>
-              </div>
-            } @else {
-              <div class="actions">
-                <button class="btn" type="button" [disabled]="busy()" (click)="approve(a)">Approve</button>
-                <button class="btn plain" type="button" (click)="startDecline(a)">Decline</button>
-              </div>
-            }
-          </article>
-        }
+      <div class="card">
+        <div class="card-title"><h2>Pending Requests ({{ items().length }})</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th><th>Type</th><th>Dates</th><th class="num">Days</th><th>Reason</th>
+                <th class="num">Balance After</th><th>Team Away</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of items(); track a.leave.id) {
+                <tr>
+                  <td>{{ a.leave.userName }}<div class="note-line">{{ a.jobTitle }}</div></td>
+                  <td>{{ a.leave.typeName }}</td>
+                  <td style="white-space:nowrap">{{ range(a.leave.from, a.leave.to) }}</td>
+                  <td class="num">{{ num(a.leave.days) }}</td>
+                  <td>{{ a.leave.reason }}</td>
+                  <td class="num">{{ num(a.leftAfter) }}</td>
+                  <td>
+                    @if (a.clash; as c) {
+                      <span class="tag" [class]="c.overLimit ? 'wait' : 'ok'" [title]="c.people.length ? names(c.people) : 'Nobody else'">
+                        {{ c.overLimit ? 'Clash' : 'OK' }} · {{ c.total }}/{{ c.teamSize }}
+                      </span>
+                    }
+                  </td>
+                  <td>
+                    <div class="actions" style="flex-wrap:nowrap">
+                      <button class="btn sm" type="button" [disabled]="busy()" (click)="approve(a)">Approve</button>
+                      <button class="btn secondary sm" type="button" (click)="startDecline(a)">Decline</button>
+                    </div>
+                  </td>
+                </tr>
+                @if (declining() === a.leave.id) {
+                  <tr>
+                    <td colspan="8" style="background:var(--thead)">
+                      <div class="form">
+                        <div class="field">
+                          <label [for]="'why-' + a.leave.id">Reason for declining (visible to {{ firstName(a.leave.userName) }})</label>
+                          <textarea [id]="'why-' + a.leave.id" rows="2" maxlength="250" [value]="comment()" (input)="comment.set(val($event))"></textarea>
+                        </div>
+                        @if (formError()) { <p class="error">{{ formError() }}</p> }
+                        <div class="actions">
+                          <button class="btn danger sm" type="button" [disabled]="busy()" (click)="decline(a)">Confirm Decline</button>
+                          <button class="btn secondary sm" type="button" (click)="declining.set(null)">Cancel</button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              } @empty {
+                <tr><td colspan="8" class="empty">No pending requests.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      @if (recent().length) {
-        <section class="card" style="margin-top:18px">
-          <div class="card-h"><h2>Recently decided</h2></div>
-          <ul class="rows">
-            @for (l of recent(); track l.id) {
-              <li>
-                <div class="person">
-                  <span class="av" [style.--c]="avatarColor(l.userId)">{{ initials(l.userName) }}</span>
-                  <div>{{ l.userName }}<div class="muted small">{{ range(l.from, l.to) }}</div></div>
-                </div>
-                <span class="st" [class]="statusLabel(l.status).cls">{{ statusLabel(l.status).text }}</span>
-              </li>
-            }
-          </ul>
-        </section>
-      }
+      <div class="card mt">
+        <div class="card-title"><h2>Recently Decided</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Status</th><th>Comment</th></tr></thead>
+            <tbody>
+              @for (l of recent(); track l.id) {
+                <tr>
+                  <td>{{ l.userName }}</td>
+                  <td>{{ l.typeName }}</td>
+                  <td>{{ range(l.from, l.to) }}</td>
+                  <td><span class="tag" [class]="statusLabel(l.status).cls">{{ statusLabel(l.status).text }}</span></td>
+                  <td class="muted">{{ l.managerComment ?? '-' }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="empty">No decisions yet.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
     }
   `,
 })
@@ -94,8 +105,7 @@ export class ApprovalsPage implements OnInit {
   private api = inject(ApiService);
   private ui = inject(UiService);
 
-  protected days = days; protected fd = fd; protected range = range; protected names = names;
-  protected typeColor = typeColor; protected avatarColor = avatarColor; protected initials = initials;
+  protected num = num; protected range = range; protected names = names;
   protected firstName = firstName; protected statusLabel = statusLabel;
 
   protected loading = signal(true);
@@ -139,7 +149,7 @@ export class ApprovalsPage implements OnInit {
 
   protected async decline(a: Approval) {
     if (this.comment().trim().length < 3) {
-      this.formError.set(`Add a reason so ${firstName(a.leave.userName)} can pick other dates.`);
+      this.formError.set(`Please give ${firstName(a.leave.userName)} a reason.`);
       return;
     }
     await this.act(() => this.api.decline(a.leave.id, this.comment().trim()), `Declined ${firstName(a.leave.userName)}'s leave`);

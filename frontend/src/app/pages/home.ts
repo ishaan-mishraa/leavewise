@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorMessage } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
-import { LEAF_PATH, avatarColor, days, fd, firstName, initials, num, range, statusLabel, today, typeColor } from '../core/format';
+import { fd, firstName, num, range, statusLabel, today } from '../core/format';
 import { AwayPerson, Balance, Holiday, Leave } from '../core/models';
 import { UiService } from '../core/ui.service';
 
@@ -10,109 +10,94 @@ import { UiService } from '../core/ui.service';
   selector: 'app-home',
   imports: [RouterLink],
   template: `
-    <section class="band">
-      <svg class="leaf" viewBox="0 0 32 32" aria-hidden="true"><path [attr.d]="leaf" fill="currentColor" /></svg>
+    <div class="page-head">
       <div>
-        <h1>Hi {{ first() }}</h1>
-        <p>
-          @if (waiting()) { {{ waiting() }} of your requests {{ waiting() === 1 ? 'is' : 'are' }} waiting for {{ manager() }}. }
-          @if (nextHolidays()[0]; as h) { Next holiday is {{ h.name }} on {{ fd(h.date) }}. }
-        </p>
+        <h1>Welcome, {{ first() }}</h1>
+        <p>Your leave balance for {{ year }}</p>
       </div>
-      <a class="btn sun" routerLink="/apply">Apply for leave</a>
-    </section>
+      <a class="btn" routerLink="/apply">+ Apply Leave</a>
+    </div>
 
     @if (loading()) {
-      <p class="loading">Loading your leave…</p>
+      <p class="loading">Loading…</p>
     } @else if (error()) {
-      <p class="err loading">{{ error() }}</p>
+      <div class="alert error">{{ error() }}</div>
     } @else {
-      <div class="tiles">
+      <div class="grid grid-4">
         @for (b of balances(); track b.code) {
-          <div class="card tile">
-            <svg class="ring" viewBox="0 0 50 50" [style.--c]="typeColor(b.code)" aria-hidden="true">
-              <circle class="track" cx="25" cy="25" r="20" />
-              <circle class="fill" cx="25" cy="25" r="20" [attr.stroke-dasharray]="ring(b)" />
-            </svg>
-            <div><b>{{ num(b.left) }}</b><span>{{ b.name }} left of {{ b.quota }}</span></div>
+          <div class="card stat">
+            <div class="label">{{ b.name }} Leave</div>
+            <div class="value">{{ num(b.left) }}<small>/ {{ b.quota }} days left</small></div>
           </div>
         }
       </div>
 
-      <div class="cols">
-        <div class="stack">
-          <section class="card">
-            <div class="card-h"><h2>Upcoming leave</h2></div>
-            <ul class="rows">
-              @for (l of upcoming(); track l.id) {
-                <li>
-                  <div class="what">
-                    <div style="font-weight:500">{{ range(l.from, l.to) }}</div>
-                    <div class="muted small"><span class="dot" [style.--c]="typeColor(l.typeCode)"></span>{{ l.typeName }} · {{ days(l.days) }} · {{ l.reason }}</div>
-                  </div>
-                  <div class="side">
-                    <span class="st" [class]="statusLabel(l.status).cls">{{ statusLabel(l.status).text }}</span>
+      <div class="card mt">
+        <div class="card-title"><h2>My Leave Requests</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Dates</th><th>Type</th><th class="num">Days</th><th>Reason</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              @for (l of leaves(); track l.id) {
+                <tr>
+                  <td>{{ range(l.from, l.to) }}</td>
+                  <td>{{ l.typeName }}</td>
+                  <td class="num">{{ num(l.days) }}</td>
+                  <td>
+                    {{ l.reason }}
+                    @if (l.managerComment) { <div class="note-line">{{ firstName(l.decidedBy ?? 'Manager') }}: {{ l.managerComment }}</div> }
+                  </td>
+                  <td><span class="tag" [class]="statusLabel(l.status).cls">{{ statusLabel(l.status).text }}</span></td>
+                  <td>
                     @if (canCancel(l)) {
-                      <button type="button" class="linkbtn" [class.danger]="armed() === l.id" (click)="cancel(l)">
-                        {{ armed() === l.id ? 'Yes, cancel it' : 'Cancel' }}
-                      </button>
+                      <button class="link" type="button" (click)="cancel(l)">{{ armed() === l.id ? 'Confirm cancel' : 'Cancel' }}</button>
                     }
-                  </div>
-                </li>
+                  </td>
+                </tr>
               } @empty {
-                <li class="empty">Nothing planned yet.</li>
+                <tr><td colspan="6" class="empty">No leave requests yet.</td></tr>
               }
-            </ul>
-          </section>
-
-          <section class="card">
-            <div class="card-h"><h2>Earlier</h2></div>
-            <ul class="rows">
-              @for (l of past(); track l.id) {
-                <li>
-                  <div class="what">
-                    <div style="font-weight:500">{{ range(l.from, l.to) }}</div>
-                    <div class="muted small"><span class="dot" [style.--c]="typeColor(l.typeCode)"></span>{{ l.typeName }} · {{ days(l.days) }} · {{ l.reason }}</div>
-                    @if (l.managerComment) { <div class="small" style="margin-top:4px">{{ firstName(l.decidedBy ?? '') }}: “{{ l.managerComment }}”</div> }
-                  </div>
-                  <div class="side"><span class="st" [class]="statusLabel(l.status).cls">{{ statusLabel(l.status).text }}</span></div>
-                </li>
-              } @empty {
-                <li class="empty">No past leave this year.</li>
-              }
-            </ul>
-          </section>
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        <div class="stack">
-          <section class="card">
-            <div class="card-h"><h2>Teammates away soon</h2></div>
-            <ul class="rows">
-              @for (p of away(); track $index) {
-                <li>
-                  <div class="person">
-                    <span class="av" [style.--c]="avatarColor(p.userId)">{{ initials(p.name) }}</span>
-                    <div class="what">
-                      <div>{{ p.name }}</div>
-                      <div class="muted small">{{ range(p.from, p.to) }}@if (p.status === 'WAITING') { · not approved yet }</div>
-                    </div>
-                  </div>
-                </li>
-              } @empty {
-                <li class="empty">Everyone is in.</li>
-              }
-            </ul>
-          </section>
-          <section class="card">
-            <div class="card-h"><h2>Holidays</h2></div>
-            <ul class="rows">
-              @for (h of nextHolidays(); track h.id) {
-                <li><div>{{ h.name }}</div><div class="side muted">{{ fd(h.date) }}</div></li>
-              } @empty {
-                <li class="empty">No more holidays this year.</li>
-              }
-            </ul>
-          </section>
+      <div class="grid grid-2 mt">
+        <div class="card">
+          <div class="card-title"><h2>Team Members on Leave</h2><span class="muted small">next 2 weeks</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Dates</th><th>Status</th></tr></thead>
+              <tbody>
+                @for (p of away(); track $index) {
+                  <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ range(p.from, p.to) }}</td>
+                    <td><span class="tag" [class]="statusLabel(p.status).cls">{{ statusLabel(p.status).text }}</span></td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="3" class="empty">Everyone is in.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><h2>Upcoming Holidays</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Holiday</th><th>Date</th></tr></thead>
+              <tbody>
+                @for (h of nextHolidays(); track h.id) {
+                  <tr><td>{{ h.name }}</td><td>{{ fd(h.date) }}</td></tr>
+                } @empty {
+                  <tr><td colspan="2" class="empty">No more holidays this year.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     }
@@ -123,10 +108,9 @@ export class HomePage implements OnInit {
   private auth = inject(AuthService);
   private ui = inject(UiService);
 
-  protected readonly leaf = LEAF_PATH;
-  protected days = days; protected fd = fd; protected num = num; protected range = range;
-  protected typeColor = typeColor; protected avatarColor = avatarColor; protected initials = initials;
+  protected fd = fd; protected num = num; protected range = range;
   protected statusLabel = statusLabel; protected firstName = firstName;
+  protected year = new Date().getFullYear();
 
   protected loading = signal(true);
   protected error = signal('');
@@ -137,13 +121,7 @@ export class HomePage implements OnInit {
   protected armed = signal<number | null>(null);
 
   protected first = computed(() => firstName(this.auth.user()?.name ?? ''));
-  protected manager = computed(() => this.auth.user()?.managerName ?? 'your manager');
-  private isUpcoming = (l: Leave) => l.to >= today() && l.status !== 'CANCELLED';
-  protected upcoming = computed(() =>
-    this.leaves().filter(this.isUpcoming).sort((a, b) => a.from.localeCompare(b.from)));
-  protected past = computed(() => this.leaves().filter(l => !this.isUpcoming(l)));
-  protected waiting = computed(() => this.upcoming().filter(l => l.status === 'WAITING').length);
-  protected nextHolidays = computed(() => this.holidays().filter(h => h.date >= today()).slice(0, 3));
+  protected nextHolidays = computed(() => this.holidays().filter(h => h.date >= today()).slice(0, 5));
 
   async ngOnInit() {
     await this.load();
@@ -152,7 +130,7 @@ export class HomePage implements OnInit {
   private async load() {
     try {
       const [balances, leaves, away, holidays] = await Promise.all([
-        this.api.balances(), this.api.myLeaves(), this.api.awaySoon(16), this.api.holidays(),
+        this.api.balances(), this.api.myLeaves(), this.api.awaySoon(14), this.api.holidays(),
       ]);
       this.balances.set(balances);
       this.leaves.set(leaves);
@@ -164,12 +142,6 @@ export class HomePage implements OnInit {
     } finally {
       this.loading.set(false);
     }
-  }
-
-  protected ring(b: Balance) {
-    const c = 2 * Math.PI * 20;
-    const f = b.quota ? Math.max(0, Math.min(1, b.left / b.quota)) : 0;
-    return `${f * c} ${c}`;
   }
 
   protected canCancel(l: Leave) {

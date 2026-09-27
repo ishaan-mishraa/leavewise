@@ -10,34 +10,35 @@ const LEGEND = [
 @Component({
   selector: 'app-calendar',
   template: `
-    <div class="page-h">
+    <div class="page-head">
       <div>
-        <h1>{{ title() }}</h1>
-        <p class="muted">{{ data()?.team ?? 'Your team' }} · who is away</p>
+        <h1>Team Calendar</h1>
+        <p>{{ data()?.team ?? 'Your team' }} · who is on leave each day</p>
       </div>
-      <div class="arrows">
+      <div class="cal-head">
         <button type="button" (click)="shift(-1)" aria-label="Previous month">‹</button>
+        <h2 style="min-width:150px;text-align:center">{{ title() }}</h2>
         <button type="button" (click)="shift(1)" aria-label="Next month">›</button>
       </div>
     </div>
 
     @if (error()) {
-      <p class="err loading">{{ error() }}</p>
+      <div class="alert error">{{ error() }}</div>
     } @else {
-      <div class="card cal-scroll">
+      <div class="card table-wrap">
         <div class="cal">
           @for (d of weekdays; track d) { <div class="dow">{{ d }}</div> }
           @for (c of cells(); track $index) {
             @if (c) {
               <div [class.we]="c.weekend" [class.busy]="c.overLimit" [class.today]="c.date === todayStr">
-                <div class="n">
+                <div class="d">
                   <span>{{ dayOf(c.date) }}</span>
-                  @if (c.overLimit) { <b>{{ c.people.length }}/{{ data()?.teamSize }} away</b> }
+                  @if (c.overLimit) { <em>{{ c.people.length }}/{{ data()?.teamSize }}</em> }
                 </div>
                 @if (c.holiday) { <div class="hol">{{ c.holiday }}</div> }
                 @for (p of c.people; track p.userId) {
-                  <div class="chip" [class.pending]="p.status === 'WAITING'" [style.--c]="typeColor(p.typeCode)"
-                       [title]="p.name + (p.status === 'WAITING' ? ' · not approved yet' : '')">{{ firstName(p.name) }}</div>
+                  <div class="who" [class.pending]="p.status === 'WAITING'" [style.--c]="typeColor(p.typeCode)"
+                       [title]="p.name + (p.status === 'WAITING' ? ' (pending)' : '')">{{ firstName(p.name) }}</div>
                 }
               </div>
             } @else {
@@ -46,10 +47,10 @@ const LEGEND = [
           }
         </div>
       </div>
-      <div class="key">
+      <div class="legend">
         @for (t of legend; track t.code) { <span><i [style.background]="typeColor(t.code)"></i>{{ t.name }}</span> }
-        <span><i style="border:1px dashed var(--muted)"></i>Not approved yet</span>
-        <span><i style="background:var(--sun)"></i>Over {{ data()?.limitPct ?? 30 }}% of the team away</span>
+        <span><i style="background:var(--wait-bg);border:1px solid #FEDF89"></i>More than {{ data()?.limitPct ?? 30 }}% of team away</span>
+        <span><em>Italic</em> = pending approval</span>
       </div>
     }
   `,

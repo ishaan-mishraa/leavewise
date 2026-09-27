@@ -2,55 +2,40 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService, errorMessage } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
-import { LEAF_PATH } from '../core/format';
 import { AuthResponse, Role } from '../core/models';
-
-// Which squares of the little calendar on the left get a colour.
-const ART: Record<number, string> = { 9: 'a', 10: 'a', 16: 'b', 17: 'b', 18: 'b', 19: 'b', 23: 'c', 25: 'd', 26: 'd' };
 
 @Component({
   selector: 'app-login',
   template: `
     <div class="login">
-      <div class="card login-card">
-        <div class="login-art">
-          <svg class="leaf" viewBox="0 0 32 32" aria-hidden="true"><path [attr.d]="leaf" fill="currentColor" /></svg>
-          <span class="logo"><img src="favicon.svg" alt="">Leavewise</span>
-          <div class="mini-cal" aria-hidden="true">
-            @for (c of art; track $index) { <span [class]="c"></span> }
-          </div>
-          <div>
-            <h2>Plan time off without leaving your team short.</h2>
-            <p>Apply in under a minute, see who else is away, and get a decision from your manager the same day.</p>
-          </div>
-        </div>
+      <div class="card">
+        <h1>Leavewise</h1>
+        <p class="sub">Leave Management System</p>
 
-        <form class="login-form" (submit)="signIn($event)" novalidate>
-          <div>
-            <h1 style="font-size:24px">Sign in</h1>
-            <p class="muted small" style="margin-top:4px">Use your work email.</p>
-          </div>
+        <form class="form" (submit)="signIn($event)" novalidate>
           <div class="field">
-            <label for="email">Work email</label>
+            <label for="email">Email</label>
             <input id="email" type="email" autocomplete="username" [value]="email()" (input)="email.set(val($event))">
           </div>
           <div class="field">
             <label for="password">Password</label>
             <input id="password" type="password" autocomplete="current-password" [value]="password()" (input)="password.set(val($event))">
           </div>
-          @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
-          <button class="btn" type="submit" [disabled]="busy()">{{ busy() === 'form' ? 'Signing in…' : 'Sign in' }}</button>
+          @if (error()) { <div class="alert error">{{ error() }}</div> }
+          <button class="btn block" type="submit" [disabled]="busy()">{{ busy() === 'form' ? 'Logging in…' : 'Login' }}</button>
+        </form>
 
-          <div class="divider">or try a sample account</div>
-          <div class="demo">
-            <button type="button" (click)="demo('EMPLOYEE')" [disabled]="busy()"><b>Employee</b><span>{{ demoNames().EMPLOYEE }}</span></button>
-            <button type="button" (click)="demo('MANAGER')" [disabled]="busy()"><b>Manager</b><span>{{ demoNames().MANAGER }}</span></button>
-            <button type="button" (click)="demo('HR')" [disabled]="busy()"><b>HR</b><span>{{ demoNames().HR }}</span></button>
+        <div class="demo">
+          <p>Demo accounts (one click):</p>
+          <div class="actions">
+            <button class="btn secondary sm" type="button" [disabled]="busy()" (click)="demo('EMPLOYEE')" [title]="demoNames().EMPLOYEE">Employee</button>
+            <button class="btn secondary sm" type="button" [disabled]="busy()" (click)="demo('MANAGER')" [title]="demoNames().MANAGER">Manager</button>
+            <button class="btn secondary sm" type="button" [disabled]="busy()" (click)="demo('HR')" [title]="demoNames().HR">HR</button>
           </div>
           @if (slow()) {
-            <p class="note calm small">Waking up the server. On the free plan this can take up to a minute the first time.</p>
+            <p class="hint mt">Starting the server. On the free hosting plan this can take up to a minute.</p>
           }
-        </form>
+        </div>
       </div>
     </div>
   `,
@@ -60,14 +45,12 @@ export class LoginPage implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  protected leaf = LEAF_PATH;
-  protected art = Array.from({ length: 35 }, (_, i) => (i % 7 >= 5 ? 'we' : ART[i] ?? ''));
   protected email = signal('');
   protected password = signal('');
   protected error = signal('');
   protected busy = signal<string | null>(null);
   protected slow = signal(false);
-  // Shown under each sample button. Replaced with the real names from the database once they load.
+  // Shown as a tooltip on each demo button. Replaced with the real names from the database once they load.
   protected demoNames = signal<Record<Role, string>>({ EMPLOYEE: 'Sample employee', MANAGER: 'Sample manager', HR: 'Sample HR' });
 
   async ngOnInit() {

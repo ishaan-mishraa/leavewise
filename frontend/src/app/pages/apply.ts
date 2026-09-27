@@ -2,7 +2,7 @@ import { Component, OnInit, computed, effect, inject, signal } from '@angular/co
 import { Router, RouterLink } from '@angular/router';
 import { ApiService, errorMessage } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
-import { avatarColor, days, fd, initials, isoDate, names, num, range, today, typeColor } from '../core/format';
+import { fd, isoDate, names, num, range, today } from '../core/format';
 import { Balance, LeaveType, Preview } from '../core/models';
 import { UiService } from '../core/ui.service';
 
@@ -17,92 +17,82 @@ function nextWorkday(): string {
   selector: 'app-apply',
   imports: [RouterLink],
   template: `
-    <div class="page-h">
+    <div class="page-head">
       <div>
-        <h1>Apply for leave</h1>
-        <p class="muted">Your request goes to {{ manager() }}.</p>
+        <h1>Apply Leave</h1>
+        <p>Your request will be sent to {{ manager() }} for approval.</p>
       </div>
     </div>
 
-    <div class="form-grid">
-      <form class="card form" (submit)="submit($event)" novalidate>
-        <fieldset class="field">
-          <legend>Type</legend>
-          <div class="types">
-            @for (t of types(); track t.code) {
-              <div [style.--c]="typeColor(t.code)">
-                <input type="radio" name="type" [id]="'t-' + t.code" [checked]="type() === t.code" (change)="type.set(t.code)">
-                <label [for]="'t-' + t.code">
-                  <span><span class="dot"></span>{{ t.name }}</span>
-                  <span class="left-count">{{ num(leftFor(t.code)) }} left</span>
-                </label>
-              </div>
-            }
-          </div>
-        </fieldset>
-
-        <div class="two">
+    <div class="grid side">
+      <div class="card">
+        <div class="card-title"><h2>Leave Details</h2></div>
+        <form class="card-body form" (submit)="submit($event)" novalidate>
           <div class="field">
-            <label for="from">From</label>
-            <input id="from" type="date" [min]="minDate" [value]="from()" (input)="setFrom(val($event))">
+            <label for="type">Leave Type</label>
+            <select id="type" [value]="type()" (change)="type.set(val($event))">
+              @for (t of types(); track t.code) {
+                <option [value]="t.code" [selected]="t.code === type()">{{ t.name }} Leave ({{ num(leftFor(t.code)) }} days left)</option>
+              }
+            </select>
           </div>
-          <div class="field">
-            <label for="to">To</label>
-            <input id="to" type="date" [min]="from() || minDate" [value]="to()" (input)="to.set(val($event))">
+          <div class="row-2">
+            <div class="field">
+              <label for="from">From Date</label>
+              <input id="from" type="date" [min]="minDate" [value]="from()" (input)="setFrom(val($event))">
+            </div>
+            <div class="field">
+              <label for="to">To Date</label>
+              <input id="to" type="date" [min]="from() || minDate" [value]="to()" (input)="to.set(val($event))">
+            </div>
           </div>
-        </div>
-
-        @if (halfAllowed()) {
-          <label class="check"><input type="checkbox" [checked]="halfDay()" (change)="halfDay.set(checked($event))"> Half day only</label>
-        }
-
-        <div class="field">
-          <label for="reason">Reason</label>
-          <textarea id="reason" rows="3" maxlength="250" placeholder="For example: attending a friend's wedding"
-                    [value]="reason()" (input)="reason.set(val($event))"></textarea>
-        </div>
-
-        @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
-        <div class="actions">
-          <button class="btn" type="submit" [disabled]="saving()">{{ saving() ? 'Sending…' : 'Send request' }}</button>
-          <a class="btn plain" routerLink="/home">Cancel</a>
-        </div>
-      </form>
-
-      <aside class="card side-card" aria-live="polite">
-        <h2>Summary</h2>
-        @if (preview(); as p) {
-          <div class="big" [style.color]="typeColor(type())">{{ num(p.days) }}<small>{{ p.days === 1 ? 'working day' : 'working days' }}</small></div>
-          <p class="small muted">
-            {{ range(from(), to()) }}
-            @if (p.holidaysSkipped.length) { · {{ p.holidaysSkipped.join(', ') }} {{ p.holidaysSkipped.length === 1 ? 'is a holiday' : 'are holidays' }} }
-            · weekends not counted
-          </p>
-          @if (p.leftAfter < 0) {
-            <p class="err">You only have {{ num(p.left) }} {{ typeName() }} days left.</p>
-          } @else {
-            <p>You'll have <b>{{ days(p.leftAfter) }}</b> of {{ typeName() }} leave left.</p>
+          @if (halfAllowed()) {
+            <label class="check"><input type="checkbox" [checked]="halfDay()" (change)="halfDay.set(checked($event))"> Half day</label>
           }
-          @if (p.clash; as c) {
-            @if (c.people.length) {
-              <div class="note" [class.calm]="!c.overLimit">
-                <div class="who-off">
-                  @for (x of c.people; track x.userId) {
-                    <span class="av" [style.--c]="avatarColor(x.userId)" [title]="x.name">{{ initials(x.name) }}</span>
-                  }
+          <div class="field">
+            <label for="reason">Reason</label>
+            <textarea id="reason" rows="3" maxlength="250" placeholder="e.g. Family function"
+                      [value]="reason()" (input)="reason.set(val($event))"></textarea>
+          </div>
+          @if (error()) { <div class="alert error">{{ error() }}</div> }
+          <div class="actions">
+            <button class="btn" type="submit" [disabled]="saving()">{{ saving() ? 'Submitting…' : 'Submit Request' }}</button>
+            <a class="btn secondary" routerLink="/home">Cancel</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><h2>Summary</h2></div>
+        <div class="card-body" aria-live="polite">
+          @if (preview(); as p) {
+            <div class="kv">
+              <div><span>Dates</span><b>{{ range(from(), to()) }}</b></div>
+              <div><span>Working days</span><b>{{ num(p.days) }}</b></div>
+              <div><span>Holidays skipped</span><b>{{ p.holidaysSkipped.length ? p.holidaysSkipped.join(', ') : 'None' }}</b></div>
+              <div><span>Balance after</span><b [style.color]="p.leftAfter < 0 ? 'var(--no)' : null">{{ num(p.leftAfter) }} days</b></div>
+            </div>
+            @if (p.leftAfter < 0) {
+              <div class="alert error mt">Not enough balance. You have {{ num(p.left) }} days left.</div>
+            }
+            @if (p.clash; as c) {
+              @if (c.overLimit) {
+                <div class="alert warn mt">
+                  <b>Team clash</b>
+                  {{ names(c.people) }} {{ c.people.length === 1 ? 'is' : 'are' }} also on leave on {{ fd(c.date) }}.
+                  That makes {{ c.total }} of {{ c.teamSize }} people away, above the {{ c.limitPct }}% limit. You can still apply.
                 </div>
-                @if (c.overLimit) { <b>Heads up.</b> }
-                {{ names(c.people) }} {{ c.people.length === 1 ? 'is' : 'are' }} also off on {{ fd(c.date) }}.
-                With you, that's {{ c.total }} of {{ c.teamSize }} people@if (c.overLimit) {, above the team's {{ c.limitPct }}% limit. You can still apply.} @else {.}
-              </div>
-            } @else {
-              <div class="note calm">Nobody else on your team is off on these dates.</div>
+              } @else if (c.people.length) {
+                <div class="alert info mt">{{ names(c.people) }} {{ c.people.length === 1 ? 'is' : 'are' }} also on leave on {{ fd(c.date) }} ({{ c.total }} of {{ c.teamSize }} away).</div>
+              } @else {
+                <div class="alert info mt">No one else in your team is on leave on these dates.</div>
+              }
             }
+          } @else {
+            <p class="muted">{{ previewMessage() }}</p>
           }
-        } @else {
-          <p class="muted">{{ previewMessage() }}</p>
-        }
-      </aside>
+        </div>
+      </div>
     </div>
   `,
 })
@@ -112,8 +102,7 @@ export class ApplyPage implements OnInit {
   private ui = inject(UiService);
   private router = inject(Router);
 
-  protected days = days; protected fd = fd; protected num = num; protected range = range; protected names = names;
-  protected typeColor = typeColor; protected avatarColor = avatarColor; protected initials = initials;
+  protected fd = fd; protected num = num; protected range = range; protected names = names;
   protected minDate = today();
 
   protected types = signal<LeaveType[]>([]);
@@ -124,12 +113,11 @@ export class ApplyPage implements OnInit {
   protected halfDay = signal(false);
   protected reason = signal('');
   protected preview = signal<Preview | null>(null);
-  protected previewMessage = signal('Working out your days…');
+  protected previewMessage = signal('Calculating…');
   protected error = signal('');
   protected saving = signal(false);
 
   protected manager = computed(() => this.auth.user()?.managerName ?? 'your manager');
-  protected typeName = computed(() => (this.types().find(t => t.code === this.type())?.name ?? '').toLowerCase());
   protected halfAllowed = computed(() =>
     !!this.from() && this.from() === this.to() && !!this.types().find(t => t.code === this.type())?.halfDayAllowed);
 
@@ -186,7 +174,7 @@ export class ApplyPage implements OnInit {
   async submit(e: Event) {
     e.preventDefault();
     if (this.reason().trim().length < 3) {
-      this.error.set('Add a short reason for your manager.');
+      this.error.set('Please enter a reason.');
       return;
     }
     this.error.set('');
@@ -196,7 +184,7 @@ export class ApplyPage implements OnInit {
         typeCode: this.type(), from: this.from(), to: this.to(),
         halfDay: this.halfAllowed() && this.halfDay(), reason: this.reason().trim(),
       });
-      this.ui.showToast(`Sent to ${this.manager()}`);
+      this.ui.showToast(`Leave request sent to ${this.manager()}`);
       await this.router.navigate(['/home']);
     } catch (err) {
       this.error.set(errorMessage(err));
